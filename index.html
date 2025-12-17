@@ -13,11 +13,11 @@
       text-align: center;
     }
 
-    /* ★ 鏡表示の核心 ★ */
+    /* 鏡表示 */
     video, canvas {
       width: 100%;
       max-width: 360px;
-      transform: scaleX(-1);   /* ← 左右反転 */
+      transform: scaleX(-1);
     }
 
     .panel { margin-top: 10px; }
@@ -40,15 +40,17 @@
   <div class="value">下確認: <span id="downCnt">0</span></div>
 </div>
 
+<!-- MediaPipe -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 
 <script>
 const video = document.getElementById('video');
 const canvas = document.getElementById('overlay');
 const ctx = canvas.getContext('2d');
 
-/* ★ canvasサイズをvideoに合わせる（重要） */
+/* canvasサイズをvideoに同期 */
 function resizeCanvas() {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
@@ -76,18 +78,33 @@ faceMesh.onResults(results => {
 
   const lm = results.multiFaceLandmarks[0];
 
+  /* --- Mesh 可視化（点群） --- */
+  for (const p of lm) {
+    ctx.beginPath();
+    ctx.arc(
+      p.x * canvas.width,
+      p.y * canvas.height,
+      1.2,
+      0,
+      2 * Math.PI
+    );
+    ctx.fillStyle = 'rgba(0,255,255,0.7)';
+    ctx.fill();
+  }
+
+  /* --- 顔向き推定 --- */
   const nose = lm[1];
   const leftEye = lm[33];
   const rightEye = lm[263];
 
-  /* ★ 鏡表示なので yaw 符号を反転 */
+  // 鏡表示なので yaw 符号反転
   const yaw = - (nose.x - (leftEye.x + rightEye.x) / 2) * 100;
   const pitch = (nose.y - 0.5) * 100;
 
   document.getElementById('yaw').innerText = yaw.toFixed(1);
   document.getElementById('pitch').innerText = pitch.toFixed(1);
 
-  // 閾値（PoC用）
+  /* --- 確認イベント定義 --- */
   if (yaw > 6 && !state.right) {
     rightCnt++; state.right = true;
   }
@@ -98,8 +115,13 @@ faceMesh.onResults(results => {
     downCnt++; state.down = true;
   }
 
-  if (Math.abs(yaw) < 3) state.left = state.right = false;
-  if (pitch < 3) state.down = false;
+  if (Math.abs(yaw) < 3) {
+    state.left = false;
+    state.right = false;
+  }
+  if (pitch < 3) {
+    state.down = false;
+  }
 
   document.getElementById('leftCnt').innerText = leftCnt;
   document.getElementById('rightCnt').innerText = rightCnt;
