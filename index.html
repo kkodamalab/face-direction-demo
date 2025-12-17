@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>運行前点検：顔向き簡易評価 PoC</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: sans-serif; background:#111; color:#fff; text-align:center; }
+    video, canvas { width: 100%; max-width: 360px; }
+    .panel { margin-top: 10px; }
+    .value { font-size: 18px; }
+  </style>
+</head>
+<body>
+
+<h2>運行前点検 行動チェック（PoC）</h2>
+
+<video id="video" autoplay muted playsinline></video>
+<canvas id="overlay"></canvas>
+
+<div class="panel">
+  <div class="value">Yaw（左右）: <span id="yaw">0</span></div>
+  <div class="value">Pitch（上下）: <span id="pitch">0</span></div>
+  <div class="value">左確認: <span id="leftCnt">0</span></div>
+  <div class="value">右確認: <span id="rightCnt">0</span></div>
+  <div class="value">下確認: <span id="downCnt">0</span></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+<script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('overlay');
+const ctx = canvas.getContext('2d');
+
+let leftCnt = 0, rightCnt = 0, downCnt = 0;
+let state = { left:false, right:false, down:false };
+
+const faceMesh = new FaceMesh({
+  locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+});
+
+faceMesh.setOptions({
+  maxNumFaces: 1,
+  refineLandmarks: true,
+  minDetectionConfidence: 0.5,
+  minTrackingConfidence: 0.5
+});
+
+faceMesh.onResults(results => {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (!results.multiFaceLandmarks) return;
+
+  const lm = results.multiFaceLandmarks[0];
+
+  // 鼻先・両目を利用した簡易Yaw/Pitch
+  const nose = lm[1];
+  const leftEye = lm[33];
+  const rightEye = lm[263];
+
+  const yaw = (nose.x - (leftEye.x + rightEye.x) / 2) * 100;
+  const pitch = (nose.y - 0.5) * 100;
+
+  document.getElementById('yaw').innerText = yaw.toFixed(1);
+  document.getElementById('pitch').innerText = pitch.toFixed(1);
+
+  // 閾値（PoC用・かなり雑）
+  if (yaw > 6 && !state.right) {
+    rightCnt++; state.right = true;
+  }
+  if (yaw < -6 && !state.left) {
+    leftCnt++; state.left = true;
+  }
+  if (pitch > 6 && !state.down) {
+    downCnt++; state.down = true;
+  }
+
+  if (Math.abs(yaw) < 3) state.left = state.right = false;
+  if (pitch < 3) state.down = false;
+
+  document.getElementById('leftCnt').innerText = leftCnt;
+  document.getElementById('rightCnt').innerText = rightCnt;
+  document.getElementById('downCnt').innerText = downCnt;
+});
+
+const camera = new Camera(video, {
+  onFrame: async () => {
+    await faceMesh.send({ image: video });
+  },
+  width: 360,
+  height: 480
+});
+
+camera.start();
+</script>
+
+</body>
+</html>
