@@ -4,17 +4,27 @@
   <meta charset="UTF-8">
   <title>運行前点検：顔向き簡易評価 PoC</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <style>
-  body { font-family: sans-serif; background:#111; color:#fff; text-align:center; }
-  video, canvas {
-    width: 100%;
-    max-width: 360px;
-    transform: scaleX(-1);   /* ← これ */
-  }
-  .panel { margin-top: 10px; }
-  .value { font-size: 18px; }
-</style>
+    body {
+      font-family: sans-serif;
+      background: #111;
+      color: #fff;
+      text-align: center;
+    }
+
+    /* ★ 鏡表示の核心 ★ */
+    video, canvas {
+      width: 100%;
+      max-width: 360px;
+      transform: scaleX(-1);   /* ← 左右反転 */
+    }
+
+    .panel { margin-top: 10px; }
+    .value { font-size: 18px; }
+  </style>
 </head>
+
 <body>
 
 <h2>運行前点検 行動チェック（PoC）</h2>
@@ -38,11 +48,18 @@ const video = document.getElementById('video');
 const canvas = document.getElementById('overlay');
 const ctx = canvas.getContext('2d');
 
+/* ★ canvasサイズをvideoに合わせる（重要） */
+function resizeCanvas() {
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+}
+
 let leftCnt = 0, rightCnt = 0, downCnt = 0;
 let state = { left:false, right:false, down:false };
 
 const faceMesh = new FaceMesh({
-  locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+  locateFile: file =>
+    `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
 });
 
 faceMesh.setOptions({
@@ -59,18 +76,18 @@ faceMesh.onResults(results => {
 
   const lm = results.multiFaceLandmarks[0];
 
-  // 鼻先・両目を利用した簡易Yaw/Pitch
   const nose = lm[1];
   const leftEye = lm[33];
   const rightEye = lm[263];
 
-  const yaw = (nose.x - (leftEye.x + rightEye.x) / 2) * 100;
+  /* ★ 鏡表示なので yaw 符号を反転 */
+  const yaw = - (nose.x - (leftEye.x + rightEye.x) / 2) * 100;
   const pitch = (nose.y - 0.5) * 100;
 
   document.getElementById('yaw').innerText = yaw.toFixed(1);
   document.getElementById('pitch').innerText = pitch.toFixed(1);
 
-  // 閾値（PoC用・かなり雑）
+  // 閾値（PoC用）
   if (yaw > 6 && !state.right) {
     rightCnt++; state.right = true;
   }
@@ -96,6 +113,10 @@ const camera = new Camera(video, {
   width: 360,
   height: 480
 });
+
+video.onloadedmetadata = () => {
+  resizeCanvas();
+};
 
 camera.start();
 </script>
