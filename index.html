@@ -5,11 +5,15 @@
   <title>運行前点検：顔向き簡易評価 PoC</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: sans-serif; background:#111; color:#fff; text-align:center; }
-    video, canvas { width: 100%; max-width: 360px; }
-    .panel { margin-top: 10px; }
-    .value { font-size: 18px; }
-  </style>
+  body { font-family: sans-serif; background:#111; color:#fff; text-align:center; }
+  video, canvas {
+    width: 100%;
+    max-width: 360px;
+    transform: scaleX(-1);   /* ← これ */
+  }
+  .panel { margin-top: 10px; }
+  .value { font-size: 18px; }
+</style>
 </head>
 <body>
 
